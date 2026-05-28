@@ -1,0 +1,20 @@
+{
+	"name": "my-nextcloud-app",
+	"version": "1.0.0",
+	"private": true,
+	"scripts": {
+		"build": "webpack --mode=production",
+		"dev": "webpack --mode=development --watch"
+	},
+	"devDependencies": {
+		"@vue/compiler-sfc": "^3.4.38",
+		"css-loader": "^6.9.1",
+		"sass": "^1.77.8",
+		"sass-loader": "^13.3.3",
+		"style-loader": "^3.3.4",
+		"vue": "^3.4.38",
+		"vue-loader": "^17.4.2",
+		"webpack": "^5.101.3",
+		"webpack-cli": "^5.1.4"
+	}
+}
