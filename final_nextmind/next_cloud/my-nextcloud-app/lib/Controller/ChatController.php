@@ -118,7 +118,7 @@ class ChatController extends Controller {
             ], Http::STATUS_PRECONDITION_FAILED);
         }
 
-        $model = (string)$this->request->getParam('model', 'gemini-3.5-flash');
+        $model = (string)$this->request->getParam('model', 'gemini-2.5-flash');
         $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
 
         // If no prompt, short-circuit
@@ -127,21 +127,26 @@ class ChatController extends Controller {
         }
 
         $instruction =
-            "You are an assistant for Nextcloud and Nextcloud Talk (spreed) only.\n"
-            . "- Give a helpful, complete answer in 2–5 short sentences.\n"
-            . "- Prefer bullet steps for 'how to' questions.\n"
-            . "- Never answer with a single word or fragment.\n"
-            . "- If the question is not about Nextcloud or Nextcloud Talk, reply exactly: \"I can only answer Nextcloud/Talk questions.\"";
+            "You are a friendly Nextcloud and Nextcloud Talk (Spreed) helper.\n"
+            . "Rules:\n"
+            . "- Write like a helpful human colleague, not a robot.\n"
+            . "- Answer in at most 60 words. Use the full limit when needed so the answer feels complete.\n"
+            . "- Use complete sentences only—never stop mid-sentence.\n"
+            . "- Only discuss Nextcloud or Nextcloud Talk.\n"
+            . "- If the question is off-topic, reply exactly: I can only help with Nextcloud and Talk.";
 
         $payload = [
             'contents' => [
                 [
-                    'parts' => [ ['text' => $instruction . "\n\nUser: " . $prompt] ]
+                    'parts' => [ ['text' => $instruction . "\n\nUser question: " . $prompt] ]
                 ]
             ],
             'generationConfig' => [
-                'temperature' => 0.2,
-                'maxOutputTokens' => 300,
+                'temperature' => 0.45,
+                'maxOutputTokens' => 256,
+                // Thinking models otherwise spend the token budget on internal reasoning
+                // and return only a few words of visible text (finishReason MAX_TOKENS).
+                'thinkingConfig' => [ 'thinkingBudget' => 0 ],
             ],
             'safetySettings' => [
                 [ 'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_NONE' ],
@@ -165,8 +170,19 @@ class ChatController extends Controller {
 
             $json = json_decode($resp, true) ?: [];
             if ($status >= 200 && $status < 300) {
-                // Try to read unified text
-                $resultText = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                $resultText = $this->extractGeminiText($json);
+                if ($resultText === '') {
+                    $finish = (string)($json['candidates'][0]['finishReason'] ?? '');
+                    throw new \Exception('Empty model response' . ($finish !== '' ? " ($finish)" : ''));
+                }
+                // Enforce ~60 words server-side so UI always gets a full, bounded answer
+                $words = preg_split('/\s+/u', $resultText, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                if (count($words) > 60) {
+                    $resultText = implode(' ', array_slice($words, 0, 60));
+                    if (!preg_match('/[.!?]$/u', $resultText)) {
+                        $resultText .= '.';
+                    }
+                }
             } else {
                 $msg = $json['error']['message'] ?? ('HTTP ' . $status);
                 throw new \Exception($msg);
@@ -179,6 +195,29 @@ class ChatController extends Controller {
         }
 
         return new DataResponse(['ok' => true, 'data' => ['text' => $resultText]]);
+    }
+
+    /**
+     * Concatenate all text parts from the first candidate (thinking models may split output).
+     *
+     * @param array<string, mixed> $json
+     */
+    private function extractGeminiText(array $json): string {
+        $parts = $json['candidates'][0]['content']['parts'] ?? [];
+        if (!is_array($parts)) {
+            return '';
+        }
+        $chunks = [];
+        foreach ($parts as $part) {
+            if (!is_array($part)) {
+                continue;
+            }
+            $text = trim((string)($part['text'] ?? ''));
+            if ($text !== '') {
+                $chunks[] = $text;
+            }
+        }
+        return trim(implode("\n", $chunks));
     }
 }
 

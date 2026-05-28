@@ -16,15 +16,15 @@
 		</div>
 
 		<!-- Body collapses when minimized -->
-		<div v-if="!minimized">
+		<div v-if="!minimized" class="widget-body">
 		<!-- Tabs -->
         <div class="tabs" role="tablist">
             <button :class="['tab', activeTab==='talk' && 'active']" role="tab" :aria-selected="activeTab==='talk'" @click="activeTab='talk'">💬 Smart Talk</button>
             <button :class="['tab', activeTab==='ai' && 'active']" role="tab" :aria-selected="activeTab==='ai'" @click="activeTab='ai'">🤖 AI</button>
 		</div>
 
-		<!-- Controls row -->
-        <div class="toolbar">
+		<!-- Controls row (Talk only; frees vertical space for AI chat) -->
+        <div v-if="activeTab==='talk'" class="toolbar">
             <select v-if="activeTab==='talk'" class="room-select" v-model="selectedRoomToken" @change="onSelectRoom" :title="'Select conversation'">
 				<option disabled value="">Select a conversation…</option>
 				<option v-for="r in rooms" :key="r.token" :value="r.token">{{ r.displayName }}</option>
@@ -63,11 +63,10 @@
 			<button class="send-button" @click="sendMessage">Send</button>
 		</div>
 
-		<!-- AI view -->
-        <div v-if="activeTab==='ai'" class="messages-area" ref="aiContainer">
+		<!-- AI view: dedicated panel (no shared messages-area styles) -->
+        <div v-if="activeTab==='ai'" class="ai-panel">
             <AiChat />
 		</div>
-        <!-- input handled inside AiChat -->
         <!-- Add participants dropdown appears after group creation -->
         <AddParticipantsDropdown v-if="showParticipants" :room-id="lastCreatedRoomId" :participants="['admin','aashu','adithya','dhanush']" @done="() => { showParticipants = false; fetchTalk() }" />
 
@@ -484,7 +483,21 @@ onBeforeUnmount(() => { try { window.SmartTalkOpen = false } catch {} })
 .chat-widget.embedded { width: 100%; }
 .chat-widget.minimized { padding-bottom: 10px }
 .chat-widget.meeting { width: min(1020px, 95vw); height: min(720px, 88vh); }
-.chat-widget.aiExpanded { width: 520px; min-height: 520px }
+.chat-widget.aiExpanded { width: min(440px, 92vw); min-height: 520px; max-height: min(88vh, 720px) }
+.widget-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ai-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .chat-widget h2 { color: var(--color-main-text); margin: 0; }
 .chat-widget p { color: var(--color-text-maxcontrast); margin: 0; }
 .header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }

@@ -6,7 +6,7 @@
         <description>Minimal Nextcloud app scaffold with JS bundle</description>
         <licence>agpl</licence>
         <author>Your Name</author>
-		<version>1.0.5</version>
+		<version>1.0.7</version>
         <namespace>MyNextcloudApp</namespace>
         <category>tools</category>
         <dependencies>
